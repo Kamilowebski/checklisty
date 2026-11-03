@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checklisty procedur</title>
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f4f7f9">
+<meta name="apple-mobile-web-app-title" content="Checklisty">
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<script src="https://cdn.tailwindcss.com/3.4.17?plugins=forms"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { page: '#f4f7f9' } } } };
+</script>
+<script src="https://kamilowebski.github.io/hub/apps.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body class="min-h-screen bg-page text-sm text-slate-900 antialiased has-[dialog[open]]:overflow-hidden">
+
+<main class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+
+  <!-- Nagłówek -->
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-semibold tracking-tight">Checklisty procedur</h1>
+      <p id="licznik" class="text-sm text-slate-600"></p>
+      <p id="userBox" class="mt-1 flex hidden items-center gap-1.5 text-xs text-slate-600"><svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span id="u-email" class="min-w-0 truncate"></span></p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div id="sessionActions" class="flex hidden flex-wrap items-center gap-2">
+        <button id="b-dodaj" type="button" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-700 hover:bg-blue-700"><svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Dodaj</button>
+        <button id="b-wyloguj" type="button" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50" title="Wyloguj"><svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span class="hidden sm:inline">Wyloguj</span></button>
+      </div>
+      <div id="hub-apps"></div>
+    </div>
+  </header>
+
+  <!-- Logowanie (widoczne tylko bez sesji) -->
+  <section id="auth" class="mx-auto hidden w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <h2 class="text-lg font-semibold">Logowanie</h2>
+    <p class="mt-1 mb-4 text-sm text-slate-600">Zaloguj się, aby zobaczyć swoje procedury.</p>
+    <div id="auth-blad" class="mb-4 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"></div>
+    <div class="mb-4">
+      <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="a-email">E-mail</label>
+      <input id="a-email" type="email" autocomplete="email" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+    </div>
+    <div class="mb-4">
+      <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="a-haslo">Hasło</label>
+      <input id="a-haslo" type="password" autocomplete="current-password" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+    </div>
+    <button id="a-wyslij" type="button" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-700 hover:bg-blue-700 w-full">Zaloguj się</button>
+  </section>
+
+  <!-- Aplikacja -->
+  <div id="app" class="hidden space-y-6">
+    <section class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" aria-label="Wyszukiwanie">
+      <div class="flex gap-1.5" role="tablist" aria-label="Widok">
+        <button type="button" role="tab" data-tab="procedury" class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors"></button>
+        <button type="button" role="tab" data-tab="wykonania" class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors"></button>
+      </div>
+      <div>
+        <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="szukaj">Szukaj</label>
+        <input id="szukaj" type="search" autocomplete="off" placeholder="Tytuł lub opis…" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+      </div>
+      <div id="filtry" class="hidden flex-wrap gap-1.5" aria-label="Filtr statusu"></div>
+    </section>
+
+    <div id="lista" class="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+    <div id="pusto" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600"></div>
+  </div>
+</main>
+
+<!-- Modal: procedura (edycja) -->
+<dialog id="modal" class="m-auto w-[calc(100%-1rem)] max-w-[560px] max-h-[calc(100dvh-1rem)] rounded-2xl border-0 bg-transparent p-0 text-slate-900 backdrop:bg-slate-900/40 sm:w-[calc(100%-2rem)]">
+  <form id="form" class="max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-6">
+    <h2 id="m-tytul" class="mb-5 text-lg font-semibold text-slate-900">Nowa procedura</h2>
+    <div id="m-blad" class="mb-4 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"></div>
+    <div class="mb-4">
+      <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="p-tytul">Tytuł</label>
+      <input id="p-tytul" required maxlength="200" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+    </div>
+    <div class="mb-4">
+      <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="p-opis">Opis (opcjonalnie)</label>
+      <textarea id="p-opis" rows="2" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 resize-y"></textarea>
+    </div>
+    <div class="mb-2 flex items-center justify-between">
+      <span class="text-[13px] font-medium text-slate-900">Kroki</span>
+      <button type="button" id="p-dodaj-krok" class="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-transparent bg-transparent px-2.5 py-1 text-[13px] font-medium text-blue-600 transition-colors hover:bg-slate-100">+ Dodaj krok</button>
+    </div>
+    <div id="p-kroki" class="space-y-3"></div>
+    <div class="mt-6 flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-auto">
+      <button type="button" id="m-anuluj" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50">Anuluj</button>
+      <button type="submit" id="m-zapisz" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-700 hover:bg-blue-700">Zapisz</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Modal: wykonanie -->
+<dialog id="wykModal" class="m-auto w-[calc(100%-1rem)] max-w-[560px] max-h-[calc(100dvh-1rem)] rounded-2xl border-0 bg-transparent p-0 text-slate-900 backdrop:bg-slate-900/40 sm:w-[calc(100%-2rem)]">
+  <div class="max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-6">
+    <h2 id="w-tytul" class="text-lg font-semibold text-slate-900"></h2>
+    <p id="w-data" class="mb-3 text-xs text-slate-400"></p>
+    <div class="mb-4">
+      <div class="mb-1 flex justify-between text-xs text-slate-600"><span id="w-postep-txt"></span><span id="w-postep-proc"></span></div>
+      <div class="h-2 overflow-hidden rounded-full bg-slate-200"><div id="w-postep" class="h-full rounded-full bg-blue-600 transition-all" style="width:0%"></div></div>
+    </div>
+    <div id="w-kroki" class="space-y-3"></div>
+    <div class="mt-4">
+      <label class="mb-1.5 block text-[13px] font-medium text-slate-900" for="w-notatka">Notatka do wykonania</label>
+      <textarea id="w-notatka" rows="2" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 resize-y"></textarea>
+    </div>
+    <div class="mt-6 flex flex-wrap justify-between gap-2 max-sm:[&>*]:flex-auto">
+      <button type="button" id="w-usun" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-red-600 bg-red-600 text-white hover:brightness-95">Usuń</button>
+      <div class="flex flex-wrap gap-2 max-sm:[&>button]:flex-auto">
+        <button type="button" id="w-zamknij" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50">Zamknij</button>
+        <button type="button" id="w-status" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-700 hover:bg-blue-700"></button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Podgląd zdjęcia -->
+<dialog id="fotoModal" class="m-auto max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[900px] rounded-2xl border-0 bg-transparent p-0 backdrop:bg-slate-900/60 sm:w-[calc(100%-2rem)]">
+  <div class="relative rounded-2xl bg-white p-2 shadow-xl">
+    <img id="fotoImg" alt="Zdjęcie" class="mx-auto max-h-[calc(100dvh-5rem)] w-auto max-w-full rounded-xl object-contain">
+    <button type="button" id="fotoZamknij" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 absolute right-3 top-3" aria-label="Zamknij">Zamknij</button>
+  </div>
+</dialog>
+
+<!-- Modal: potwierdzenie -->
+<dialog id="cfmModal" class="m-auto w-[calc(100%-1rem)] max-w-[400px] max-h-[calc(100dvh-1rem)] rounded-2xl border-0 bg-transparent p-0 text-slate-900 backdrop:bg-slate-900/40 sm:w-[calc(100%-2rem)]">
+  <div class="rounded-2xl bg-white p-4 shadow-xl sm:p-6">
+    <p id="cfmMsg" class="mb-6 text-sm"></p>
+    <div class="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-auto">
+      <button type="button" id="cfmNo" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50">Anuluj</button>
+      <button type="button" id="cfmOk" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-red-600 bg-red-600 text-white hover:brightness-95">Usuń</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-[1000] max-w-[calc(100vw-2rem)] -translate-x-1/2 translate-y-4 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white opacity-0 shadow-xl transition" role="status" aria-live="polite"></div>
+
+<script>
+// ===== Konfiguracja =====
+const SB_URL = 'https://jccbausmoykoqohfuyqw.supabase.co'; // Supabase > Project Settings > API
+const SB_KEY = 'sb_publishable_xv8yXGbIiF44_6KjWo8uFg_4Mg4PS8P'; // klucz publishable (publiczny), NIE service_role
+const T_PROC = 'procedury';
+const T_WYK = 'wykonania';
+const BUCKET = 'checklisty-zdjecia';
+const LS_TAB = 'checklisty_tab';
+const MAX_BOK = 1600;          // zdjęcia zmniejszamy do tylu px dłuższego boku
+const JAKOSC = 0.82;           // jakość JPEG
+const MAX_FOTO_KROK = 8;       // limit zdjęć na jeden krok
+const URL_TTL = 3600;          // ważność linków do zdjęć (s)
+
+// klasy wspólnych komponentów (takie same jak w pozostałych stronach)
+const BTN_S = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-slate-300 bg-white text-slate-900 hover:bg-slate-50';
+const BTN_P = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-700 hover:bg-blue-700';
+const BTN_D = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 border-red-600 bg-red-600 text-white hover:brightness-95';
+const CHIP = 'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors';
+const CHIP_ON = 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700';
+const CHIP_OFF = 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+const ICON_BTN = 'inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+const INPUT = 'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20';
+const svg = (d, c = 'h-4 w-4 shrink-0') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I_UP = '<path d="M6 15l6-6 6 6"/>';
+const I_DOWN = '<path d="M6 9l6 6 6-6"/>';
+const I_TRASH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>';
+const I_EDIT = '<path d="M4 20h4L19 9l-4-4L4 16z"/>';
+const I_X = '<path d="M6 6l12 12M18 6L6 18"/>';
+const I_CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
+const I_PLAY = '<path d="M8 5v14l11-7z"/>';
+
+// ===== Stan =====
+const db = supabase.createClient(SB_URL, SB_KEY);
+let user = null;
+let procedury = [];
+let wykonania = [];
+let tab = 'procedury';
+let filtrStatus = 'wszystkie';
+const otwarte = new Set();           // rozwinięte karty procedur
+const urle = new Map();              // ścieżka zdjęcia -> podpisany link
+let edycja = null;                   // stan edytora procedury
+let biezace = null;                  // otwarte wykonanie (id)
+
+const $ = (id) => document.getElementById(id);
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+
+// Escapowanie danych użytkownika
+function esc(t) {
+  return String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function pokaz(el, tekst) { el.textContent = tekst; el.classList.remove('hidden'); }
+function ukryj(el) { el.classList.add('hidden'); }
+const dataPl = (iso) => iso ? new Date(iso).toLocaleString('pl-PL', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+
+// Toast
+let toastT;
+function toast(msg, ms = 2200) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('opacity-100', '!translate-y-0');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('opacity-100', '!translate-y-0'), ms);
+}
+
+// Okno potwierdzenia
+function askConfirm(msg, okLabel = 'OK') {
+  const dlg = $('cfmModal');
+  $('cfmMsg').textContent = msg;
+  $('cfmOk').textContent = okLabel;
+  return new Promise((resolve) => {
+    let ok = false;
+    const onClose = () => { dlg.removeEventListener('close', onClose); resolve(ok); };
+    $('cfmOk').onclick = () => { ok = true; dlg.close(); };
+    $('cfmNo').onclick = () => dlg.close();
+    dlg.addEventListener('close', onClose);
+    dlg.showModal();
+  });
+}
+$('cfmModal').addEventListener('click', (e) => { if (e.target === $('cfmModal')) $('cfmModal').close(); });
+
+// ===== Zdjęcia (Supabase Storage, prywatny bucket, linki podpisywane) =====
+// zmniejsza zdjęcie i zamienia na JPEG, żeby nie wysyłać kilku MB z telefonu
+async function kompresuj(file) {
+  const bmp = await createImageBitmap(file);
+  const skala = Math.min(1, MAX_BOK / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * skala); c.height = Math.round(bmp.height * skala);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Nie udało się przetworzyć zdjęcia'))), 'image/jpeg', JAKOSC));
+}
+async function wyslijZdjecie(file) {
+  const blob = await kompresuj(file);
+  const sciezka = user.id + '/' + uid() + '.jpg';
+  const { error } = await db.storage.from(BUCKET).upload(sciezka, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw error;
+  return sciezka;
+}
+async function usunZdjecia(sciezki) {
+  if (!sciezki.length) return;
+  const { error } = await db.storage.from(BUCKET).remove(sciezki);
+  if (error) console.warn('Nie usunięto zdjęć:', error.message);
+  sciezki.forEach((s) => urle.delete(s));
+}
+async function pobierzUrle(sciezki) {
+  const brak = [...new Set(sciezki)].filter((s) => !urle.has(s));
+  if (!brak.length) return;
+  const { data, error } = await db.storage.from(BUCKET).createSignedUrls(brak, URL_TTL);
+  if (error || !data) return;
+  data.forEach((x) => { if (x.signedUrl) urle.set(x.path, x.signedUrl); });
+}
+// zdjęcia ze wszystkich kroków (procedury i wykonania)
+const zdjeciaProcedury = (p) => (p.kroki || []).flatMap((k) => k.zdjecia || []);
+const zdjeciaWykonania = (w) => (w.kroki || []).flatMap((k) => [...(k.zdjecia || []), ...(k.wzor || [])]);
+// czy ścieżka jest jeszcze gdzieś używana (poza wskazanym wykonaniem/procedurą)
+function uzywane(sciezka, pomijajProc, pomijajWyk) {
+  return procedury.some((p) => p.id !== pomijajProc && zdjeciaProcedury(p).includes(sciezka))
+    || wykonania.some((w) => w.id !== pomijajWyk && zdjeciaWykonania(w).includes(sciezka));
+}
+// miniatury (klik = powiększenie)
+function miniatury(sciezki, opcje = {}) {
+  return sciezki.map((s) => {
+    const url = urle.get(s);
+    const img = url ? `<img src="${esc(url)}" alt="Zdjęcie" loading="lazy" class="h-16 w-16 rounded-lg border border-slate-200 object-cover">`
+      : '<span class="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] text-slate-400">brak</span>';
+    const usun = opcje.usun ? `<button type="button" data-foto-usun="${esc(s)}" aria-label="Usuń zdjęcie" class="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white shadow">${svg(I_X, 'h-3 w-3')}</button>` : '';
+    return `<span class="relative inline-block"><button type="button" data-foto="${esc(s)}" class="block">${img}</button>${usun}</span>`;
+  }).join('');
+}
+function otworzFoto(sciezka) {
+  const url = urle.get(sciezka);
+  if (!url) return;
+  $('fotoImg').src = url;
+  $('fotoModal').showModal();
+}
+$('fotoZamknij').onclick = () => $('fotoModal').close();
+$('fotoModal').addEventListener('click', (e) => { if (e.target === $('fotoModal')) $('fotoModal').close(); });
+// pole wyboru zdjęć (na telefonie: aparat lub galeria)
+const polePlik = (dataAttr, wartosc) => `<label class="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[13px] font-medium text-slate-900 transition-colors hover:bg-slate-50">${svg(I_CAM)}Zdjęcie<input type="file" accept="image/*" multiple class="hidden" ${dataAttr}="${wartosc}"></label>`;
+
+// ===== Widok: logowanie / aplikacja =====
+function setSession(sesja) {
+  const on = !!sesja;
+  user = on ? sesja.user : null;
+  $('auth').classList.toggle('hidden', on);
+  $('app').classList.toggle('hidden', !on);
+  $('sessionActions').classList.toggle('hidden', !on);
+  $('userBox').classList.toggle('hidden', !on);
+  $('u-email').textContent = on ? (user.email || '') : '';
+}
+
+// ===== Logowanie (konta zakłada administrator w Supabase) =====
+$('a-wyslij').onclick = async () => {
+  ukryj($('auth-blad'));
+  const email = $('a-email').value.trim(), haslo = $('a-haslo').value;
+  if (!email || !haslo) return pokaz($('auth-blad'), 'Podaj e-mail i hasło.');
+  $('a-wyslij').disabled = true;
+  const { error } = await db.auth.signInWithPassword({ email, password: haslo });
+  $('a-wyslij').disabled = false;
+  if (error) pokaz($('auth-blad'), 'Nie udało się zalogować: ' + error.message);
+};
+$('a-haslo').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('a-wyslij').click(); });
+$('b-wyloguj').onclick = () => db.auth.signOut();
+
+db.auth.onAuthStateChange((_ev, sesja) => {
+  setSession(sesja);
+  if (sesja) laduj();
+  else { procedury = []; wykonania = []; urle.clear(); $('a-haslo').value = ''; }
+});
+
+// ===== Dane =====
+async function laduj() {
+  const [p, w] = await Promise.all([
+    db.from(T_PROC).select('*').order('created_at', { ascending: false }),
+    db.from(T_WYK).select('*').order('created_at', { ascending: false })
+  ]);
+  if (p.error || w.error) { procedury = []; wykonania = []; pokaz($('pusto'), 'Nie udało się pobrać danych: ' + (p.error || w.error).message); return; }
+  procedury = p.data; wykonania = w.data;
+  await pobierzUrle([...procedury.flatMap(zdjeciaProcedury), ...wykonania.flatMap(zdjeciaWykonania)]);
+  rysuj();
+}
+
+const postep = (w) => { const k = w.kroki || []; const z = k.filter((x) => x.zrobione).length; return { z, n: k.length, proc: k.length ? Math.round(z / k.length * 100) : 0 }; };
+
+function rysuj() {
+  const q = $('szukaj').value.trim().toLowerCase();
+  const wToku = wykonania.filter((w) => w.status === 'w_toku').length;
+  $('licznik').textContent = procedury.length + ' procedur, w toku: ' + wToku;
+
+  // zakładki
+  document.querySelectorAll('[data-tab]').forEach((b) => {
+    const t = b.dataset.tab;
+    b.textContent = (t === 'procedury' ? 'Procedury ' + procedury.length : 'Wykonania ' + wykonania.length);
+    b.className = CHIP + ' ' + (tab === t ? CHIP_ON : CHIP_OFF);
+    b.setAttribute('aria-selected', String(tab === t));
+  });
+  const filtry = $('filtry');
+  filtry.classList.toggle('hidden', tab !== 'wykonania');
+  filtry.classList.toggle('flex', tab === 'wykonania');
+  if (tab === 'wykonania') {
+    filtry.innerHTML = [['wszystkie', 'Wszystkie'], ['w_toku', 'W toku'], ['zakonczone', 'Zakończone']].map(([k, n]) =>
+      `<button type="button" data-filtr="${k}" class="${CHIP} ${filtrStatus === k ? CHIP_ON : CHIP_OFF}">${n}</button>`).join('');
+  }
+
+  const lista = $('lista'), pusto = $('pusto');
+  let html = '', ile = 0;
+  if (tab === 'procedury') {
+    const wyniki = procedury.filter((p) => !q || (p.tytul + ' ' + p.opis).toLowerCase().includes(q));
+    ile = wyniki.length;
+    html = wyniki.map((p) => {
+      const kroki = p.kroki || [], otw = otwarte.has(p.id), fotek = zdjeciaProcedury(p).length;
+      return `<article class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <button type="button" data-toggle="${p.id}" aria-expanded="${otw}" class="flex w-full items-start justify-between gap-3 rounded-xl p-4 text-left hover:bg-slate-50">
+          <div class="min-w-0 space-y-1">
+            <h3 class="break-words font-semibold text-slate-900">${esc(p.tytul)}</h3>
+            ${p.opis ? `<p class="line-clamp-2 break-words text-sm text-slate-600">${esc(p.opis)}</p>` : ''}
+            <p class="text-xs text-slate-400">${kroki.length} kroków${fotek ? ', zdjęć: ' + fotek : ''}</p>
+          </div>
+          ${svg('<path d="m6 9 6 6 6-6"/>', 'mt-0.5 h-5 w-5 shrink-0 text-slate-400 transition-transform ' + (otw ? 'rotate-180' : ''))}
+        </button>
+        ${otw ? `<ol class="space-y-3 border-t border-slate-200 p-4">${kroki.map((k, i) => `<li class="flex gap-2 text-sm"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs text-blue-700">${i + 1}</span><div class="min-w-0 space-y-2"><span class="break-words">${esc(k.tekst)}</span>${(k.zdjecia || []).length ? `<div class="flex flex-wrap gap-2">${miniatury(k.zdjecia)}</div>` : ''}</div></li>`).join('')}</ol>` : ''}
+        <div class="flex items-center justify-between gap-2 border-t border-slate-200 p-3">
+          <button type="button" data-uruchom="${p.id}" class="${BTN_P}">${svg(I_PLAY)}Uruchom</button>
+          <div class="flex">
+            <button type="button" data-edytuj="${p.id}" title="Edytuj" aria-label="Edytuj" class="${ICON_BTN}">${svg(I_EDIT)}</button>
+            <button type="button" data-usun="${p.id}" title="Usuń" aria-label="Usuń" class="${ICON_BTN} hover:!bg-red-100 hover:!text-red-600">${svg(I_TRASH)}</button>
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+  } else {
+    const wyniki = wykonania.filter((w) => (filtrStatus === 'wszystkie' || w.status === filtrStatus) && (!q || (w.tytul + ' ' + (w.notatka || '')).toLowerCase().includes(q)));
+    ile = wyniki.length;
+    html = wyniki.map((w) => {
+      const pr = postep(w), gotowe = w.status === 'zakonczone';
+      return `<article class="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="min-w-0 break-words font-semibold text-slate-900">${esc(w.tytul)}</h3>
+          <span class="inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none ${gotowe ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${gotowe ? 'Zakończone' : 'W toku'}</span>
+        </div>
+        <p class="mt-1 text-xs text-slate-400">${gotowe && w.finished_at ? 'Zakończono ' + dataPl(w.finished_at) : 'Start ' + dataPl(w.created_at)}</p>
+        <div class="mt-3">
+          <div class="mb-1 flex justify-between text-xs text-slate-600"><span>${pr.z} z ${pr.n} kroków</span><span>${pr.proc}%</span></div>
+          <div class="h-2 overflow-hidden rounded-full bg-slate-200"><div class="h-full rounded-full ${gotowe ? 'bg-emerald-600' : 'bg-blue-600'}" style="width:${pr.proc}%"></div></div>
+        </div>
+        <div class="mt-3 flex justify-end"><button type="button" data-otworz="${w.id}" class="${BTN_S}">Otwórz</button></div>
+      </article>`;
+    }).join('');
+  }
+  lista.innerHTML = html;
+  if (ile) ukryj(pusto);
+  else if (tab === 'procedury') pokaz(pusto, procedury.length ? 'Brak wyników dla tego wyszukiwania.' : 'Nie masz jeszcze żadnych procedur. Dodaj pierwszą przyciskiem u góry.');
+  else pokaz(pusto, wykonania.length ? 'Brak wykonań dla tych filtrów.' : 'Nie ma jeszcze wykonań. Uruchom procedurę z zakładki Procedury.');
+}
+
+// ===== Zdarzenia listy =====
+$('szukaj').addEventListener('input', rysuj);
+document.querySelector('[data-tab]').parentElement.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  tab = b.dataset.tab;
+  try { localStorage.setItem(LS_TAB, tab); } catch (_) {}
+  rysuj();
+});
+$('filtry').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filtr]'); if (!b) return;
+  filtrStatus = b.dataset.filtr; rysuj();
+});
+$('lista').addEventListener('click', async (e) => {
+  const foto = e.target.closest('[data-foto]');
+  if (foto) return otworzFoto(foto.dataset.foto);
+  const tg = e.target.closest('[data-toggle]'), ur = e.target.closest('[data-uruchom]'), ed = e.target.closest('[data-edytuj]'),
+    us = e.target.closest('[data-usun]'), ot = e.target.closest('[data-otworz]');
+  if (tg) { const id = tg.dataset.toggle; if (otwarte.has(id)) otwarte.delete(id); else otwarte.add(id); return rysuj(); }
+  if (ur) return uruchom(ur.dataset.uruchom);
+  if (ed) return otworzEdytor(procedury.find((p) => p.id === ed.dataset.edytuj));
+  if (ot) return otworzWykonanie(ot.dataset.otworz);
+  if (us) {
+    const p = procedury.find((x) => x.id === us.dataset.usun); if (!p) return;
+    if (!(await askConfirm('Usunąć procedurę „' + p.tytul + '"? Dotychczasowe wykonania zostaną w historii.', 'Usuń'))) return;
+    const { error } = await db.from(T_PROC).delete().eq('id', p.id);
+    if (error) return toast('Nie udało się usunąć: ' + error.message, 4000);
+    await usunZdjecia(zdjeciaProcedury(p).filter((s) => !uzywane(s, p.id, null)));
+    toast('Usunięto'); laduj();
+  }
+});
+
+// ===== Edytor procedury =====
+function otworzEdytor(p) {
+  edycja = {
+    id: p ? p.id : null, zapisano: false,
+    kroki: p ? (p.kroki || []).map((k) => ({ id: k.id || uid(), tekst: k.tekst || '', zdjecia: [...(k.zdjecia || [])] })) : [{ id: uid(), tekst: '', zdjecia: [] }],
+    oryginal: p ? zdjeciaProcedury(p) : [],
+    nowe: new Set()
+  };
+  $('m-tytul').textContent = p ? 'Edytuj procedurę' : 'Nowa procedura';
+  $('p-tytul').value = p?.tytul || '';
+  $('p-opis').value = p?.opis || '';
+  ukryj($('m-blad'));
+  rysujKroki();
+  $('modal').showModal();
+  setTimeout(() => $('p-tytul').focus(), 50);
+}
+function rysujKroki() {
+  const k = edycja.kroki;
+  $('p-kroki').innerHTML = k.map((s, i) => `<div class="rounded-lg border border-slate-200 p-3">
+    <div class="flex items-start gap-2">
+      <span class="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs text-blue-700">${i + 1}</span>
+      <textarea data-tekst="${i}" rows="2" maxlength="500" placeholder="Treść kroku" class="${INPUT} min-w-0 flex-1 resize-y">${esc(s.tekst)}</textarea>
+      <div class="flex shrink-0 flex-col">
+        <button type="button" data-gora="${i}" aria-label="W górę" class="${ICON_BTN}" ${i === 0 ? 'disabled' : ''}>${svg(I_UP)}</button>
+        <button type="button" data-dol="${i}" aria-label="W dół" class="${ICON_BTN}" ${i === k.length - 1 ? 'disabled' : ''}>${svg(I_DOWN)}</button>
+        <button type="button" data-skasuj="${i}" aria-label="Usuń krok" class="${ICON_BTN} hover:!bg-red-100 hover:!text-red-600">${svg(I_TRASH)}</button>
+      </div>
+    </div>
+    <div class="mt-2 flex flex-wrap items-center gap-2 pl-7">
+      ${miniatury(s.zdjecia, { usun: true })}
+      ${s.zdjecia.length < MAX_FOTO_KROK ? polePlik('data-plik', i) : ''}
+    </div>
+  </div>`).join('');
+}
+$('p-dodaj-krok').onclick = () => { edycja.kroki.push({ id: uid(), tekst: '', zdjecia: [] }); rysujKroki(); const t = $('p-kroki').querySelectorAll('textarea'); t[t.length - 1].focus(); };
+$('p-kroki').addEventListener('input', (e) => {
+  const t = e.target.closest('[data-tekst]'); if (t) edycja.kroki[Number(t.dataset.tekst)].tekst = t.value;
+});
+$('p-kroki').addEventListener('click', (e) => {
+  const k = edycja.kroki;
+  const g = e.target.closest('[data-gora]'), d = e.target.closest('[data-dol]'), s = e.target.closest('[data-skasuj]'),
+    fu = e.target.closest('[data-foto-usun]'), f = e.target.closest('[data-foto]');
+  if (fu) {
+    const sc = fu.dataset.fotoUsun;
+    k.forEach((x) => { x.zdjecia = x.zdjecia.filter((z) => z !== sc); });
+    return rysujKroki();
+  }
+  if (f) return otworzFoto(f.dataset.foto);
+  if (g) { const i = Number(g.dataset.gora); if (i > 0) [k[i - 1], k[i]] = [k[i], k[i - 1]]; return rysujKroki(); }
+  if (d) { const i = Number(d.dataset.dol); if (i < k.length - 1) [k[i + 1], k[i]] = [k[i], k[i + 1]]; return rysujKroki(); }
+  if (s) { k.splice(Number(s.dataset.skasuj), 1); return rysujKroki(); }
+});
+$('p-kroki').addEventListener('change', async (e) => {
+  const inp = e.target.closest('[data-plik]'); if (!inp) return;
+  const krok = edycja.kroki[Number(inp.dataset.plik)];
+  const pliki = [...inp.files].slice(0, MAX_FOTO_KROK - krok.zdjecia.length);
+  inp.value = '';
+  if (!pliki.length) return;
+  toast('Wysyłanie zdjęć…', 8000);
+  let blad = null;
+  for (const f of pliki) {
+    try { const s = await wyslijZdjecie(f); krok.zdjecia.push(s); edycja.nowe.add(s); } catch (err) { blad = err; }
+  }
+  await pobierzUrle(krok.zdjecia);
+  rysujKroki();
+  toast(blad ? 'Nie wszystkie zdjęcia zostały wysłane: ' + blad.message : 'Dodano zdjęcia', blad ? 4000 : 1800);
+});
+$('m-anuluj').onclick = () => $('modal').close();
+// po zamknięciu bez zapisu usuwamy zdjęcia wysłane w tej sesji edycji
+$('modal').addEventListener('close', () => {
+  if (edycja && !edycja.zapisano) usunZdjecia([...edycja.nowe]);
+});
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const kroki = edycja.kroki.map((k) => ({ id: k.id, tekst: k.tekst.trim(), zdjecia: k.zdjecia })).filter((k) => k.tekst);
+  if (!kroki.length) return pokaz($('m-blad'), 'Dodaj co najmniej jeden krok z treścią.');
+  const rekord = { tytul: $('p-tytul').value.trim(), opis: $('p-opis').value.trim(), kroki, updated_at: new Date().toISOString() };
+  if (!rekord.tytul) return pokaz($('m-blad'), 'Podaj tytuł.');
+  $('m-zapisz').disabled = true;
+  const { error } = edycja.id
+    ? await db.from(T_PROC).update(rekord).eq('id', edycja.id)
+    : await db.from(T_PROC).insert(rekord); // user_id uzupełnia baza (auth.uid())
+  $('m-zapisz').disabled = false;
+  if (error) return pokaz($('m-blad'), 'Nie udało się zapisać: ' + error.message);
+  edycja.zapisano = true;
+  // zdjęcia usunięte z procedury kasujemy, o ile nie używa ich żadne wykonanie
+  const zostaly = new Set(kroki.flatMap((k) => k.zdjecia));
+  const doUsuniecia = [...new Set([...edycja.oryginal, ...edycja.nowe])].filter((s) => !zostaly.has(s) && !uzywane(s, edycja.id, null));
+  $('modal').close();
+  await usunZdjecia(doUsuniecia);
+  toast(edycja.id ? 'Zapisano zmiany' : 'Dodano procedurę');
+  laduj();
+});
+$('b-dodaj').onclick = () => { if (tab === 'wykonania') { tab = 'procedury'; rysuj(); } otworzEdytor(null); };
+
+// ===== Wykonania =====
+async function uruchom(id) {
+  const p = procedury.find((x) => x.id === id); if (!p) return;
+  const rekord = {
+    procedura_id: p.id, tytul: p.tytul, status: 'w_toku', notatka: '',
+    kroki: (p.kroki || []).map((k) => ({ id: k.id, tekst: k.tekst, zrobione: false, zdjecia: [], wzor: [...(k.zdjecia || [])] }))
+  };
+  const { data, error } = await db.from(T_WYK).insert(rekord).select().single();
+  if (error) return toast('Nie udało się uruchomić: ' + error.message, 4000);
+  wykonania.unshift(data);
+  tab = 'wykonania'; rysuj();
+  otworzWykonanie(data.id);
+}
+const biezaceWyk = () => wykonania.find((w) => w.id === biezace);
+
+function otworzWykonanie(id) {
+  biezace = id;
+  rysujWykonanie();
+  $('w-notatka').value = biezaceWyk().notatka || '';
+  $('wykModal').showModal();
+}
+function rysujWykonanie() {
+  const w = biezaceWyk(); if (!w) return;
+  const pr = postep(w), gotowe = w.status === 'zakonczone';
+  $('w-tytul').textContent = w.tytul;
+  $('w-data').textContent = (gotowe && w.finished_at ? 'Zakończono ' + dataPl(w.finished_at) : 'Start ' + dataPl(w.created_at));
+  $('w-postep-txt').textContent = pr.z + ' z ' + pr.n + ' kroków';
+  $('w-postep-proc').textContent = pr.proc + '%';
+  $('w-postep').style.width = pr.proc + '%';
+  $('w-postep').className = 'h-full rounded-full transition-all ' + (gotowe ? 'bg-emerald-600' : 'bg-blue-600');
+  $('w-status').textContent = gotowe ? 'Wznów' : 'Zakończ';
+  $('w-status').className = gotowe ? BTN_S : BTN_P;
+  $('w-kroki').innerHTML = w.kroki.map((k, i) => `<div class="rounded-lg border border-slate-200 p-3 ${k.zrobione ? 'bg-slate-50' : ''}">
+    <div class="flex items-start gap-3">
+      <button type="button" data-ptaszek="${i}" role="checkbox" aria-checked="${!!k.zrobione}" aria-label="Oznacz krok ${i + 1}" class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${k.zrobione ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white'}">${k.zrobione ? svg('<path d="M5 12l5 5 9-10"/>', 'h-3.5 w-3.5') : ''}</button>
+      <span class="min-w-0 flex-1 break-words text-sm ${k.zrobione ? 'text-slate-400 line-through' : ''}">${esc(k.tekst)}</span>
+    </div>
+    ${(k.wzor || []).length ? `<div class="mt-2 pl-8"><div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">Wzór</div><div class="flex flex-wrap gap-2">${miniatury(k.wzor)}</div></div>` : ''}
+    <div class="mt-2 flex flex-wrap items-center gap-2 pl-8">
+      ${miniatury(k.zdjecia || [], { usun: true })}
+      ${(k.zdjecia || []).length < MAX_FOTO_KROK ? polePlik('data-wplik', i) : ''}
+    </div>
+  </div>`).join('');
+}
+// zapis wykonania w bazie (wywoływany po każdej zmianie)
+async function zapiszWykonanie(pola) {
+  const w = biezaceWyk(); if (!w) return;
+  Object.assign(w, pola);
+  const { error } = await db.from(T_WYK).update(pola).eq('id', w.id);
+  if (error) toast('Nie udało się zapisać zmiany: ' + error.message, 4000);
+}
+$('w-kroki').addEventListener('click', async (e) => {
+  const w = biezaceWyk(); if (!w) return;
+  const p = e.target.closest('[data-ptaszek]'), fu = e.target.closest('[data-foto-usun]'), f = e.target.closest('[data-foto]');
+  if (f && !fu) return otworzFoto(f.dataset.foto);
+  if (p) {
+    const k = w.kroki[Number(p.dataset.ptaszek)];
+    k.zrobione = !k.zrobione;
+    rysujWykonanie(); rysuj();
+    return zapiszWykonanie({ kroki: w.kroki });
+  }
+  if (fu) {
+    const sc = fu.dataset.fotoUsun;
+    w.kroki.forEach((k) => { k.zdjecia = (k.zdjecia || []).filter((z) => z !== sc); });
+    rysujWykonanie();
+    await zapiszWykonanie({ kroki: w.kroki });
+    await usunZdjecia([sc].filter((s) => !uzywane(s, null, w.id)));
+  }
+});
+$('w-kroki').addEventListener('change', async (e) => {
+  const inp = e.target.closest('[data-wplik]'); if (!inp) return;
+  const w = biezaceWyk(); if (!w) return;
+  const krok = w.kroki[Number(inp.dataset.wplik)];
+  krok.zdjecia = krok.zdjecia || [];
+  const pliki = [...inp.files].slice(0, MAX_FOTO_KROK - krok.zdjecia.length);
+  inp.value = '';
+  if (!pliki.length) return;
+  toast('Wysyłanie zdjęć…', 8000);
+  let blad = null;
+  for (const f of pliki) { try { krok.zdjecia.push(await wyslijZdjecie(f)); } catch (err) { blad = err; } }
+  await pobierzUrle(krok.zdjecia);
+  rysujWykonanie();
+  await zapiszWykonanie({ kroki: w.kroki });
+  toast(blad ? 'Nie wszystkie zdjęcia zostały wysłane: ' + blad.message : 'Dodano zdjęcia', blad ? 4000 : 1800);
+});
+// notatka: zapis z opóźnieniem
+let notatkaT;
+$('w-notatka').addEventListener('input', () => {
+  clearTimeout(notatkaT);
+  const w = biezaceWyk(), tresc = $('w-notatka').value;
+  notatkaT = setTimeout(() => { if (w && biezace === w.id) zapiszWykonanie({ notatka: tresc }); }, 600);
+});
+$('w-status').onclick = async () => {
+  const w = biezaceWyk(); if (!w) return;
+  if (w.status === 'zakonczone') {
+    await zapiszWykonanie({ status: 'w_toku', finished_at: null });
+    rysujWykonanie(); rysuj(); return;
+  }
+  const brak = w.kroki.filter((k) => !k.zrobione).length;
+  if (brak && !(await askConfirm('Nie wszystkie kroki są odhaczone (' + brak + '). Zakończyć mimo to?', 'Zakończ'))) return;
+  await zapiszWykonanie({ status: 'zakonczone', finished_at: new Date().toISOString(), notatka: $('w-notatka').value });
+  $('wykModal').close();
+  toast('Wykonanie zakończone');
+};
+$('w-zamknij').onclick = () => $('wykModal').close();
+// zamknięcie okna: zapisz notatkę i odśwież listę
+$('wykModal').addEventListener('close', async () => {
+  const w = biezaceWyk();
+  clearTimeout(notatkaT);
+  if (w && $('w-notatka').value !== (w.notatka || '')) await zapiszWykonanie({ notatka: $('w-notatka').value });
+  biezace = null;
+  rysuj();
+});
+$('w-usun').onclick = async () => {
+  const w = biezaceWyk(); if (!w) return;
+  if (!(await askConfirm('Usunąć to wykonanie wraz ze zdjęciami dodanymi w trakcie?', 'Usuń'))) return;
+  const wlasne = zdjeciaWykonania(w); // własne zdjęcia i kopie wzorów
+  const { error } = await db.from(T_WYK).delete().eq('id', w.id);
+  if (error) return toast('Nie udało się usunąć: ' + error.message, 4000);
+  wykonania = wykonania.filter((x) => x.id !== w.id);
+  biezace = null;
+  $('wykModal').close();
+  await usunZdjecia(wlasne.filter((s) => !uzywane(s, null, w.id)));
+  toast('Usunięto');
+};
+
+// ===== Start =====
+try { const t = localStorage.getItem(LS_TAB); if (t === 'procedury' || t === 'wykonania') tab = t; } catch (_) {}
+</script>
+</body>
+</html>
